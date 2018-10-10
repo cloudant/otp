@@ -45,6 +45,9 @@ atom Noname='nonode@nohost'
 atom EOT='$end_of_table'
 atom Empty=''
 
+# davisp - hacking in badmons
+atom badmons
+
 #
 # Used in the Beam emulator loop. (Smaller literals usually means tighter code.)
 #
