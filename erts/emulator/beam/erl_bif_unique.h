@@ -241,6 +241,8 @@ ERTS_GLB_INLINE int
 erts_internal_ref_number_cmp(Uint32 num1[ERTS_REF_NUMBERS],
 			     Uint32 num2[ERTS_REF_NUMBERS])
 {
+    //erts_fprintf(stderr, "%u %u %u : %u %u %u\r\n", num1[2], num1[1], num1[0], num2[2], num2[1], num2[0]);
+
     if (num1[2] != num2[2])
 	return (int) ((Sint64) num1[2] - (Sint64) num2[2]);
     if (num1[1] != num2[1])

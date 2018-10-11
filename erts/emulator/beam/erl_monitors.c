@@ -933,17 +933,17 @@ void erts_sweep_suspend_monitors(ErtsSuspendMonitor *root,
 
 /* Debug BIF, always present, but undocumented... */
 	    
-static void erts_dump_monitors(ErtsMonitor *root, int indent)
+void erts_dump_monitors(ErtsMonitor *root, int indent)
 {
     if (root == NULL)
 	return;
     erts_dump_monitors(root->right,indent+2);
-    erts_printf("%*s[%b16d:%b16u:%T:%T", indent, "", root->balance,
+    erts_fprintf(stderr, "%*s[%b16d:%b16u:%T:%T", indent, "", root->balance,
 		root->type, root->ref, root->name);
     if (root->type == MON_NIF_TARGET)
-	erts_printf(":%p]\n", root->u.resource);
+	erts_fprintf(stderr, ":%p]\n", root->u.resource);
     else
-	erts_printf(":%T]\n", root->u.pid);
+	erts_fprintf(stderr, ":%T]\n", root->u.pid);
     erts_dump_monitors(root->left,indent+2);
 }
 

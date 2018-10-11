@@ -657,6 +657,20 @@ erts_queue_monitor_message(Process *p,
     erts_queue_message(p, *p_locksp, msgp, tup, am_system);
 }
 
+static int is_badmons_source(Process* p);
+
+static int
+is_badmons_source(Process* p)
+{
+        Eterm name = erts_pd_hash_get(p, am_registered_name);
+
+        if(erts_cmp_atoms(name, am_badmons) == 0) {
+                return 1;
+        }
+
+        return 0;
+}
+
 static Eterm
 local_pid_monitor(Process *p, Eterm target, Eterm mon_ref, int boolean)
 {
@@ -687,8 +701,16 @@ local_pid_monitor(Process *p, Eterm target, Eterm mon_ref, int boolean)
 	if (boolean)
 	    ret = am_true;
 
+    int debug_badmons = is_badmons_source(p);
+
 	erts_add_monitor(&ERTS_P_MONITORS(p), MON_ORIGIN, mon_ref, target, NIL);
 	erts_add_monitor(&ERTS_P_MONITORS(rp), MON_TARGET, mon_ref, p->common.id, NIL);
+
+    if(debug_badmons) {
+        erts_fprintf(stderr, "=== ADDED ===\r\n");
+        erts_dump_monitors(ERTS_P_MONITORS(p), 0);
+        fflush(stderr);
+    }
 
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
     }

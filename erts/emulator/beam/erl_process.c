@@ -13633,12 +13633,16 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 	    UseTmpHeapNoproc(3);
             badmons_debug = is_badmons_target(rp);
 	    rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
-	    if(badmons_debug && rmon) {
-                    erts_printf("Got origin monitor: %T\r\n", rmon->ref);
-	    } else if(badmons_debug) {
-                    erts_printf("Missing origin monitor: %T\r\n", mon->ref);
-	    }
-	    if (rmon) {
+        if(badmons_debug) {
+            erts_fprintf(stderr, "=== REMOVED ===\r\n");
+            erts_dump_monitors(ERTS_P_MONITORS(rp), 0);
+            erts_fprintf(stderr, "\r\n\r\n");
+            fflush(stderr);
+        }
+        if(!rmon) {
+            sleep(30);
+        }
+	    //if (rmon) {
 		erts_destroy_monitor(rmon);
 		watched = (is_atom(mon->name)
 			   ? TUPLE2(lhp, mon->name, 
@@ -13646,7 +13650,7 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 			   : pcontext->p->common.id);
 		erts_queue_monitor_message(rp, &rp_locks, mon->ref, am_process, 
 					   watched, pcontext->reason);
-	    }
+	    //}
 	    UnUseTmpHeapNoproc(3);
 	    /* else: demonitor while we exited, i.e. do nothing... */
 	    erts_smp_proc_unlock(rp, rp_locks);
