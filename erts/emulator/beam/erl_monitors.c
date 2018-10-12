@@ -932,20 +932,59 @@ void erts_sweep_suspend_monitors(ErtsSuspendMonitor *root,
 				
 
 /* Debug BIF, always present, but undocumented... */
-	    
-static void erts_dump_monitors(ErtsMonitor *root, int indent)
+
+void erts_dump_monitors(ErtsMonitor *root, int indent)
 {
     if (root == NULL)
 	return;
     erts_dump_monitors(root->right,indent+2);
-    erts_printf("%*s[%b16d:%b16u:%T:%T", indent, "", root->balance,
+    erts_fprintf(stderr, "%*s[%b16d:%b16u:%T:%T", indent, "", root->balance,
 		root->type, root->ref, root->name);
     if (root->type == MON_NIF_TARGET)
-	erts_printf(":%p]\n", root->u.resource);
+	erts_fprintf(stderr, ":%p]\n", root->u.resource);
     else
-	erts_printf(":%T]\n", root->u.pid);
+	erts_fprintf(stderr, ":%T]\n", root->u.pid);
     erts_dump_monitors(root->left,indent+2);
 }
+
+void erts_validate_monitors(ErtsMonitor *root)
+{
+    Sint c1 = -1;
+    Sint c2 = -1;
+    Sint c3 = -1;
+
+    if(root == NULL) {
+        return;
+    }
+
+    if(root->left != NULL) {
+        c1 = CMP_MON_REF(root->left->ref, root->ref);
+    }
+
+    if(root->right != NULL) {
+        c2 = CMP_MON_REF(root->ref, root->right->ref);
+    }
+
+    if(root->left != NULL && root->right != NULL) {
+        c3 = CMP_MON_REF(root->left->ref, root->right->ref);
+    }
+
+    if(c1 >= 0 || c2 >= 0 || c3 >= 0) {
+        erts_fprintf(stderr, "=> %T %T %T : %d %d %d\r\n",
+                root->left->ref,
+                root->ref,
+                root->right->ref,
+                c1,
+                c2,
+                c3
+            );
+        raise(11);
+    }
+
+    erts_validate_monitors(root->left);
+    erts_validate_monitors(root->right);
+}
+
 
 static void erts_dump_links_aux(ErtsLink *root, int indent,
 				erts_dsprintf_buf_t *dsbufp)

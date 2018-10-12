@@ -13512,6 +13512,21 @@ typedef struct {
     Process *p;
 } ExitMonitorContext;
 
+int is_badmons_target(Process* p);
+
+int
+is_badmons_target(Process* p)
+{
+    Eterm name = erts_pd_hash_get(p, am_registered_name);
+
+    if(erts_cmp_atoms(name, am_badmons) == 0) {
+        return 1;
+    }
+
+    return 0;
+}
+
+
 static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 {
     ExitMonitorContext *pcontext = vpcontext;
@@ -13605,15 +13620,24 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 	} else if (is_internal_pid(mon->u.pid)) {/* local by name or pid */
 	    Eterm watched;
             Process *rp;
+	    int badmons_debug;
 	    DeclareTmpHeapNoproc(lhp,3);
-	    ErtsProcLocks rp_locks = (ERTS_PROC_LOCK_LINK
+	    ErtsProcLocks rp_locks = (ERTS_PROC_LOCK_MAIN
+				      | ERTS_PROC_LOCK_LINK
 				      | ERTS_PROC_LOCKS_MSG_SEND);
 	    rp = erts_pid2proc(NULL, 0, mon->u.pid, rp_locks);
 	    if (rp == NULL) {
 		goto done;
 	    }
 	    UseTmpHeapNoproc(3);
+	    badmons_debug = is_badmons_target(rp);
+	    if(badmons_debug) {
+		erts_validate_monitors(ERTS_P_MONITORS(rp));
+	    }
 	    rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
+	    if(badmons_debug) {
+		erts_validate_monitors(ERTS_P_MONITORS(rp));
+	    }
 	    if (rmon) {
 		erts_destroy_monitor(rmon);
 		watched = (is_atom(mon->name)

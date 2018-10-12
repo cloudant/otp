@@ -3630,6 +3630,14 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    /* Used by (emulator) */
 	    BIF_RET(make_small((Uint) ERTS_BIF_REDS_LEFT(BIF_P)));
 	}
+	else if (ERTS_IS_ATOM_STR("ref_value", BIF_ARG_1)) {
+	    ErtsSchedulerData* esd = erts_proc_sched_data(BIF_P);
+	    Uint* hp;
+	    Uint need = 0;
+	    erts_bld_uint64(NULL, &need, esd->ref);
+	    hp = HAlloc(BIF_P, need);
+	    BIF_RET(erts_bld_uint64(&hp, NULL, esd->ref));
+	}
 	else if (ERTS_IS_ATOM_STR("node_and_dist_references", BIF_ARG_1)) {
 	    /* Used by node_container_SUITE (emulator) */
 	    Eterm res = erts_get_node_and_dist_references(BIF_P);
@@ -4148,6 +4156,15 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		}
 		BIF_RET(am_true);
 	    }
+	}
+	else if (ERTS_IS_ATOM_STR("ref_value", BIF_ARG_1))  {
+	    ErtsSchedulerData* esd = erts_proc_sched_data(BIF_P);
+	    Uint64 new_ref_value;
+	    if(!term_to_Uint64(BIF_ARG_2, &new_ref_value)) {
+		BIF_ERROR(BIF_P, BADARG);
+	    }
+	    esd->ref = new_ref_value;
+	    BIF_RET(am_true);
 	}
 	else if (ERTS_IS_ATOM_STR("block", BIF_ARG_1)
 		 || ERTS_IS_ATOM_STR("sleep", BIF_ARG_1)) {
