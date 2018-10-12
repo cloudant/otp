@@ -152,6 +152,7 @@ void erts_destroy_monitor(ErtsMonitor *mon);
 void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, UWord entity,
 		      Eterm name);
 void erts_dump_monitors(ErtsMonitor *root, int indent);
+void erts_validate_monitors(ErtsMonitor *root);
 ErtsMonitor *erts_remove_monitor(ErtsMonitor **root, Eterm ref);
 ErtsMonitor *erts_lookup_monitor(ErtsMonitor *root, Eterm ref);
 void erts_sweep_monitors(ErtsMonitor *root, 

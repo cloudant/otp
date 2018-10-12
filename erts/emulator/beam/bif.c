@@ -704,13 +704,15 @@ local_pid_monitor(Process *p, Eterm target, Eterm mon_ref, int boolean)
     int debug_badmons = is_badmons_source(p);
 
 	erts_add_monitor(&ERTS_P_MONITORS(p), MON_ORIGIN, mon_ref, target, NIL);
-	erts_add_monitor(&ERTS_P_MONITORS(rp), MON_TARGET, mon_ref, p->common.id, NIL);
 
     if(debug_badmons) {
-        erts_fprintf(stderr, "=== ADDED ===\r\n");
-        erts_dump_monitors(ERTS_P_MONITORS(p), 0);
-        fflush(stderr);
+        erts_validate_monitors(ERTS_P_MONITORS(p));
     }
+	erts_add_monitor(&ERTS_P_MONITORS(rp), MON_TARGET, mon_ref, p->common.id, NIL);
+    if(debug_badmons) {
+        erts_validate_monitors(ERTS_P_MONITORS(p));
+    }
+
 
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
     }
