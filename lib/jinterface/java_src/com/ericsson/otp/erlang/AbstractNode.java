@@ -107,7 +107,7 @@ public class AbstractNode implements OtpTransportFactory {
             | dFlagExportPtrTag
 	    | dFlagBigCreation
             | dFlagHandshake23
-            | dFlagV4PidsRefs;
+            | dFlagV4PidsRefs | dFlagDistMonitor | dFlagDistMonitorName;
 
     /* initialize hostname and default cookie */
     static {

@@ -322,6 +322,7 @@ public class OtpNode extends OtpLocalNode {
             mboxes.remove(mbox);
             mbox.name = null;
             mbox.breakLinks(reason);
+            mbox.breakMonitors(reason);
         }
     }
 
@@ -524,16 +525,30 @@ public class OtpNode extends OtpLocalNode {
 
         try {
             final int t = m.type();
+            String name;
 
-            if (t == OtpMsg.regSendTag) {
-                final String name = m.getRecipientName();
+            switch (t) {
+            case OtpMsg.regSendTag:
+                name = m.getRecipientName();
                 /* special case for netKernel requests */
                 if (name.equals("net_kernel")) {
                     return netKernel(m);
                 }
                 mbox = mboxes.get(name);
-            } else {
+                break;
+            case OtpMsg.monitorTag:
+            case OtpMsg.demonitorTag:
+            case OtpMsg.monitorExitTag:
+                name = m.getRecipientName();
+                if (name != null) {
+                    mbox = mboxes.get(name);
+                } else {
+                    mbox = mboxes.get(m.getRecipientPid());
+                }
+                break;
+            default:
                 mbox = mboxes.get(m.getRecipientPid());
+                break;
             }
 
             if (mbox == null) {

@@ -84,6 +84,7 @@ public class OtpMbox {
     GenericQueue queue;
     String name;
     Links links;
+    Monitors monitors;
 
     // package constructor: called by OtpNode:createMbox(name)
     // to create a named mbox
@@ -93,6 +94,7 @@ public class OtpMbox {
         this.name = name;
         queue = new GenericQueue();
         links = new Links(10);
+        monitors = new Monitors(10);
     }
 
     // package constructor: called by OtpNode:createMbox()
@@ -487,6 +489,23 @@ public class OtpMbox {
         }
     }
 
+    private void monitorExit(final OtpErlangPid monitoring,
+            final OtpErlangRef ref, final OtpErlangObject reason) {
+        try {
+            final String node = monitoring.node();
+            if (node.equals(home.node())) {
+                home.deliver(new OtpMsg(OtpMsg.monitorExitTag, monitoring, self, ref, reason));
+            } else {
+                final OtpCookedConnection conn = home.getConnection(node);
+                if (conn == null) {
+                    return;
+                }
+                conn.monitorExit(self, monitoring, ref, reason);
+            }
+        } catch (final Exception e) {
+        }
+    }
+
     /**
      * <p>
      * Link to a remote mailbox or Erlang process. Links are idempotent, calling
@@ -563,6 +582,50 @@ public class OtpMbox {
                 final OtpCookedConnection conn = home.getConnection(node);
                 if (conn != null) {
                     conn.unlink(self, to);
+                }
+            }
+        } catch (final Exception e) {
+        }
+    }
+
+    public OtpErlangRef monitor(final OtpErlangPid monitored) throws OtpErlangExit {
+        final OtpErlangRef ref = home.createRef();
+        try {
+            final String node = monitored.node();
+            if (node.equals(home.node())) {
+                if (!home.deliver(new OtpMsg(OtpMsg.monitorTag, self, monitored, ref))) {
+                    home.deliver(new OtpMsg(OtpMsg.monitorExitTag, self, monitored, ref,
+                            new OtpErlangAtom("noproc")));
+                }
+            } else {
+                final OtpCookedConnection conn = home.getConnection(node);
+                if (conn != null) {
+                    conn.monitor(self, monitored, ref);
+                } else {
+                    home.deliver(new OtpMsg(OtpMsg.monitorExitTag, self, monitored, ref,
+                            new OtpErlangAtom("noproc")));
+                }
+            }
+        } catch (final OtpErlangExit e) {
+            throw e;
+        } catch (final Exception e) {
+        }
+
+        monitors.addMonitor(self, monitored, ref);
+        return ref;
+    }
+
+    public void demonitor(final OtpErlangPid monitored, final OtpErlangRef ref) {
+        monitors.removeMonitor(self, monitored, ref);
+
+        try {
+            final String node = monitored.node();
+            if (node.equals(home.node())) {
+                home.deliver(new OtpMsg(OtpMsg.demonitorTag, self, monitored, ref));
+            } else {
+                final OtpCookedConnection conn = home.getConnection(node);
+                if (conn != null) {
+                    conn.demonitor(self, monitored, ref);
                 }
             }
         } catch (final Exception e) {
@@ -706,6 +769,19 @@ public class OtpMbox {
             queue.put(m);
             break;
 
+        case OtpMsg.monitorTag:
+            monitors.addMonitor(self, m.getSenderPid(), m.getRef());
+            break;
+
+        case OtpMsg.demonitorTag:
+            monitors.removeMonitor(self, m.getSenderPid(), m.getRef());
+            break;
+
+        case OtpMsg.monitorExitTag:
+            monitors.removeMonitor(self, m.getSenderPid(), m.getRef());
+            queue.put(m);
+            break;
+
         case OtpMsg.exit2Tag:
         default:
             queue.put(m);
@@ -725,4 +801,18 @@ public class OtpMbox {
             }
         }
     }
+
+    // used to break all known monitors to this mbox
+    void breakMonitors(final OtpErlangObject reason) {
+        final Monitor[] m = monitors.clearMonitors();
+
+        if (m != null) {
+            final int len = m.length;
+
+            for (int i = 0; i < len; i++) {
+                monitorExit(m[i].monitoring(), m[i].ref(), reason);
+            }
+        }
+    }
+
 }

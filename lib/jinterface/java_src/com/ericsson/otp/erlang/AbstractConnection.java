@@ -71,6 +71,9 @@ public abstract class AbstractConnection extends Thread {
     protected static final int regSendTag = 6;
     protected static final int groupLeaderTag = 7;
     protected static final int exit2Tag = 8;
+    protected static final int monitorTag = 19;
+    protected static final int demonitorTag = 20;
+    protected static final int monitorExitTag = 21;
 
     protected static final int sendTTTag = 12;
     protected static final int exitTTTag = 13;
@@ -479,6 +482,90 @@ public abstract class AbstractConnection extends Thread {
         do_send(header);
     }
 
+    protected void sendMonitor(final OtpErlangPid monitoring, final OtpErlangPid monitored,
+            final OtpErlangRef ref) throws IOException {
+        if (!connected) {
+            throw new IOException("Not connected");
+        }
+        @SuppressWarnings("resource")
+        final OtpOutputStream header = new OtpOutputStream(headerLen);
+
+        // preamble: 4 byte length + "passthrough" tag
+        header.write4BE(0); // reserve space for length
+        header.write1(passThrough);
+        header.write1(version);
+
+        // header
+        header.write_tuple_head(4);
+        header.write_long(monitorTag);
+        header.write_any(monitoring);
+        header.write_any(monitored);
+        header.write_any(ref);
+
+        // fix up length in preamble
+        header.poke4BE(0, header.size() - 4);
+
+        do_send(header);
+    }
+
+    protected void sendDemonitor(final OtpErlangPid monitoring, final OtpErlangPid monitored,
+            final OtpErlangRef ref) throws IOException {
+        if (!connected) {
+            throw new IOException("Not connected");
+        }
+        @SuppressWarnings("resource")
+        final OtpOutputStream header = new OtpOutputStream(headerLen);
+
+        // preamble: 4 byte length + "passthrough" tag
+        header.write4BE(0); // reserve space for length
+        header.write1(passThrough);
+        header.write1(version);
+
+        // header
+        header.write_tuple_head(4);
+        header.write_long(demonitorTag);
+        header.write_any(monitoring);
+        header.write_any(monitored);
+        header.write_any(ref);
+
+        // fix up length in preamble
+        header.poke4BE(0, header.size() - 4);
+
+        do_send(header);
+    }
+
+    protected void sendMonitorExit(final OtpErlangPid monitoring, final Object monitored,
+        final OtpErlangRef ref, final OtpErlangObject reason)
+        throws IOException {
+        if (!connected) {
+            throw new IOException("Not connected");
+        }
+        @SuppressWarnings("resource")
+        final OtpOutputStream header = new OtpOutputStream(headerLen);
+
+        // preamble: 4 byte length + "passthrough" tag
+        header.write4BE(0); // reserve space for length
+        header.write1(passThrough);
+        header.write1(version);
+
+        // header
+        header.write_tuple_head(5);
+        header.write_long(monitorExitTag);
+        if (monitored instanceof String) {
+            header.write_any(new OtpErlangAtom((String) monitored));
+        } else {
+            header.write_any((OtpErlangPid)monitored);
+        }
+        header.write_any(monitoring);
+        header.write_any(ref);
+        header.write_any(reason);
+
+        // fix up length in preamble
+        header.poke4BE(0, header.size() - 4);
+
+        do_send(header);
+    }
+
     @SuppressWarnings("resource")
     @Override
     public void run() {
@@ -535,6 +622,7 @@ public abstract class AbstractConnection extends Thread {
                 OtpErlangAtom toName;
                 OtpErlangPid to;
                 OtpErlangPid from;
+                OtpErlangRef ref;
                 int tag;
 
                 // decode the header
@@ -686,6 +774,44 @@ public abstract class AbstractConnection extends Thread {
                     to = (OtpErlangPid) head.elementAt(2);
 
                     deliver(new OtpMsg(tag, from, to));
+                    break;
+
+                case monitorTag: // {MONITOR_P, FromPid, ToProc, Ref}
+                case demonitorTag: // {DEMONITOR_P, FromPid, ToProc, Ref}
+                    if (traceLevel >= ctrlThreshold) {
+                        System.out.println("<- " + headerType(head) + " "
+                                + head);
+                    }
+
+                    from = (OtpErlangPid) head.elementAt(1);
+                    ref = (OtpErlangRef) head.elementAt(3);
+
+                    if (head.elementAt(2) instanceof OtpErlangPid) {
+                        to = (OtpErlangPid) head.elementAt(2);
+                        deliver(new OtpMsg(tag, from, to, ref));
+                    } else {
+                        toName = (OtpErlangAtom) head.elementAt(2);
+                        deliver(new OtpMsg(tag, from, toName.atomValue(), ref));
+                    }
+                    break;
+
+                case monitorExitTag: // {MONITOR_P_EXIT, FromProc, ToPid, Ref, Reason}
+                    if (traceLevel >= ctrlThreshold) {
+                        System.out.println("<- " + headerType(head) + " "
+                                + head);
+                    }
+
+                    from = (OtpErlangPid) head.elementAt(1);
+                    ref = (OtpErlangRef) head.elementAt(3);
+                    reason = (OtpErlangRef) head.elementAt(4);
+
+                    if (head.elementAt(2) instanceof OtpErlangPid) {
+                        to = (OtpErlangPid) head.elementAt(2);
+                        deliver(new OtpMsg(tag, from, to, ref, reason));
+                    } else {
+                        toName = (OtpErlangAtom) head.elementAt(2);
+                        deliver(new OtpMsg(tag, from, toName.atomValue(), ref, reason));
+                    }
                     break;
 
                 // absolutely no idea what to do with these, so we ignore
@@ -897,6 +1023,15 @@ public abstract class AbstractConnection extends Thread {
 
         case exit2TTTag:
             return "EXIT2_TT";
+
+        case monitorTag:
+            return "MONITOR_P";
+
+        case demonitorTag:
+            return "DEMONITOR_P";
+
+        case monitorExitTag:
+            return "MONITOR_P_EXIT";
         }
 
         return "(unknown type)";

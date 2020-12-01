@@ -60,6 +60,9 @@ public class OtpMsg {
     public static final int regSendTag = 6;
     /* public static final int groupLeaderTag = 7; */
     public static final int exit2Tag = 8;
+    public static final int monitorTag = 19;
+    public static final int demonitorTag = 20;
+    public static final int monitorExitTag = 21;
 
     protected int tag; // what type of message is this (send, link, exit etc)
     protected OtpInputStream paybuf;
@@ -67,6 +70,8 @@ public class OtpMsg {
 
     protected OtpErlangPid from;
     protected OtpErlangPid to;
+    protected OtpErlangRef ref;
+    protected String fromName;
     protected String toName;
 
     // send has receiver pid but no sender information
@@ -121,6 +126,28 @@ public class OtpMsg {
         payload = reason;
     }
 
+    // monitor exit (etc) has monitoring, monitored, ref, reason
+    OtpMsg(final int tag, final OtpErlangPid monitoring, final OtpErlangPid monitored,
+            final OtpErlangRef ref, final OtpErlangObject reason) {
+        this.tag = tag;
+        this.from = monitored;
+        this.to = monitoring;
+        this.ref = ref;
+        paybuf = null;
+        payload = reason;
+    }
+
+    // monitor exit (etc) has monitoring, monitored, ref, reason
+    OtpMsg(final int tag, final OtpErlangPid monitoring, final String monitored,
+            final OtpErlangRef ref, final OtpErlangObject reason) {
+        this.tag = tag;
+        this.fromName = monitored;
+        this.to = monitoring;
+        this.ref = ref;
+        paybuf = null;
+        payload = reason;
+    }
+
     // special case when reason is an atom (i.e. most of the time)
     OtpMsg(final int tag, final OtpErlangPid from, final OtpErlangPid to,
             final String reason) {
@@ -142,6 +169,21 @@ public class OtpMsg {
         this.tag = atag;
         this.from = from;
         this.to = to;
+    }
+
+    // other message types (monitor, demonitor)
+    OtpMsg(final int tag, final OtpErlangPid monitoring, final OtpErlangPid monitored, final OtpErlangRef ref) {
+        this.tag = tag;
+        this.from = monitoring;
+        this.to = monitored;
+        this.ref = ref;
+    }
+
+    OtpMsg(final int tag, final OtpErlangPid monitoring, final String monitored, final OtpErlangRef ref) {
+        this.tag = tag;
+        this.from = monitoring;
+        this.toName = monitored;
+        this.ref = ref;
     }
 
     /**
@@ -236,6 +278,10 @@ public class OtpMsg {
         return toName;
     }
 
+    public String getSenderName() {
+        return fromName;
+    }
+
     /**
      * <p>
      * Get the Pid of the recipient for this message, if it is a sendTag
@@ -276,6 +322,13 @@ public class OtpMsg {
         return to;
     }
 
+    public Object getSender() {
+        if (fromName != null) {
+            return fromName;
+        }
+        return from;
+    }
+
     /**
      * <p>
      * Get the Pid of the sender of this message.
@@ -291,5 +344,9 @@ public class OtpMsg {
      */
     public OtpErlangPid getSenderPid() {
         return from;
+    }
+
+    public OtpErlangRef getRef() {
+        return ref;
     }
 }

@@ -65,6 +65,8 @@ public class OtpCookedConnection extends AbstractConnection {
      */
     protected Links links = null;
 
+    protected Monitors monitors = null;
+
     /*
      * Accept an incoming connection from a remote node. Used by {@link
      * OtpSelf#accept() OtpSelf.accept()} to create a connection based on data
@@ -83,6 +85,7 @@ public class OtpCookedConnection extends AbstractConnection {
         super(self, s);
         this.self = self;
         links = new Links(25);
+        monitors = new Monitors(25);
         start();
     }
 
@@ -101,6 +104,7 @@ public class OtpCookedConnection extends AbstractConnection {
         super(self, other);
         this.self = self;
         links = new Links(25);
+        monitors = new Monitors(25);
         start();
     }
 
@@ -139,6 +143,24 @@ public class OtpCookedConnection extends AbstractConnection {
             links.removeLink(msg.getRecipientPid(), msg.getSenderPid());
             break;
 
+        case OtpMsg.monitorTag:
+            if (delivered) {
+                monitors.addMonitor(msg.getSenderPid(), msg.getRecipient(), msg.getRef());
+            } else {
+                try {
+                    // no such pid - send monitor exit to sender
+                    super.sendMonitorExit(msg.getSenderPid(), msg.getRecipient(), msg.getRef(),
+                            new OtpErlangAtom("noproc"));
+                } catch (final IOException e) {
+                }
+            }
+            break;
+
+        case OtpMsg.demonitorTag:
+        case OtpMsg.monitorExitTag:
+            monitors.removeMonitor(msg.getSenderPid(), msg.getRecipient(), msg.getRef());
+            break;
+
         case OtpMsg.exit2Tag:
             break;
         }
@@ -171,6 +193,7 @@ public class OtpCookedConnection extends AbstractConnection {
     public void close() {
         super.close();
         breakLinks();
+        breakMonitors();
     }
 
     @Override
@@ -200,6 +223,14 @@ public class OtpCookedConnection extends AbstractConnection {
         }
     }
 
+    void monitorExit(final OtpErlangPid monitoring, final OtpErlangPid monitored,
+            final OtpErlangRef ref, final OtpErlangObject reason) {
+        try {
+            super.sendMonitorExit(monitoring, monitored, ref, reason);
+        } catch (final Exception e) {
+        }
+    }
+
     /*
      * snoop for outgoing links and update own table
      */
@@ -225,10 +256,54 @@ public class OtpCookedConnection extends AbstractConnection {
     }
 
     /*
+     * snoop for outgoing monitors and update own table
+     */
+    synchronized void monitor(final OtpErlangPid monitoring, final OtpErlangPid monitored, final OtpErlangRef ref)
+            throws OtpErlangExit {
+        try {
+            super.sendMonitor(monitoring, monitored, ref);
+            monitors.addMonitor(monitoring, monitored, ref);
+        } catch (final IOException e) {
+            deliver(new OtpMsg(OtpMsg.monitorExitTag, monitoring, monitored, ref, new OtpErlangAtom("noproc")));
+        }
+    }
+
+    /*
+     * snoop for outgoing unlinks and update own table
+     */
+    synchronized void demonitor(final OtpErlangPid monitoring, final OtpErlangPid monitored, final OtpErlangRef ref) {
+        monitors.removeMonitor(monitoring, monitored, ref);
+        try {
+            super.sendDemonitor(monitoring, monitored, ref);
+        } catch (final IOException e) {
+        }
+    }
+
+    /*
      * When the connection fails - send exit to all local pids with links
      * through this connection
      */
     synchronized void breakLinks() {
+        if (links != null) {
+            final Link[] l = links.clearLinks();
+
+            if (l != null) {
+                final int len = l.length;
+
+                for (int i = 0; i < len; i++) {
+                    // send exit "from" remote pids to local ones
+                    self.deliver(new OtpMsg(OtpMsg.exitTag, l[i].remote(), l[i]
+                            .local(), new OtpErlangAtom("noconnection")));
+                }
+            }
+        }
+    }
+
+    /*
+     * When the connection fails - send down to all local pids with monitors
+     * through this connection
+     */
+    synchronized void breakMonitors() {
         if (links != null) {
             final Link[] l = links.clearLinks();
 
