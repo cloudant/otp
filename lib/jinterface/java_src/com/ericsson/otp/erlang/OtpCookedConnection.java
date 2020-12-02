@@ -264,7 +264,7 @@ public class OtpCookedConnection extends AbstractConnection {
             super.sendMonitor(monitoring, monitored, ref);
             monitors.addMonitor(monitoring, monitored, ref);
         } catch (final IOException e) {
-            deliver(new OtpMsg(OtpMsg.monitorExitTag, monitoring, monitored, ref, new OtpErlangAtom("noproc")));
+            deliver(OtpMsg.monitorExitMsg(monitoring, monitored, ref, new OtpErlangAtom("noproc")));
         }
     }
 

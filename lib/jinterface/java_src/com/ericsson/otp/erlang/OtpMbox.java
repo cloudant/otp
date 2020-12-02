@@ -494,7 +494,7 @@ public class OtpMbox {
         try {
             final String node = monitoring.node();
             if (node.equals(home.node())) {
-                home.deliver(new OtpMsg(OtpMsg.monitorExitTag, monitoring, self, ref, reason));
+                home.deliver(OtpMsg.monitorExitMsg(monitoring, self, ref, reason));
             } else {
                 final OtpCookedConnection conn = home.getConnection(node);
                 if (conn == null) {
@@ -593,8 +593,8 @@ public class OtpMbox {
         try {
             final String node = monitored.node();
             if (node.equals(home.node())) {
-                if (!home.deliver(new OtpMsg(OtpMsg.monitorTag, self, monitored, ref))) {
-                    home.deliver(new OtpMsg(OtpMsg.monitorExitTag, self, monitored, ref,
+                if (!home.deliver(OtpMsg.monitorMsg(self, monitored, ref))) {
+                    home.deliver(OtpMsg.monitorExitMsg(self, monitored, ref,
                             new OtpErlangAtom("noproc")));
                 }
             } else {
@@ -602,7 +602,7 @@ public class OtpMbox {
                 if (conn != null) {
                     conn.monitor(self, monitored, ref);
                 } else {
-                    home.deliver(new OtpMsg(OtpMsg.monitorExitTag, self, monitored, ref,
+                    home.deliver(OtpMsg.monitorExitMsg(self, monitored, ref,
                             new OtpErlangAtom("noproc")));
                 }
             }

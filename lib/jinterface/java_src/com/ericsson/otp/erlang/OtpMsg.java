@@ -126,10 +126,15 @@ public class OtpMsg {
         payload = reason;
     }
 
-    // monitor exit (etc) has monitoring, monitored, ref, reason
-    OtpMsg(final int tag, final OtpErlangPid monitoring, final OtpErlangPid monitored,
+    static OtpMsg monitorExitMsg(final OtpErlangPid monitoring, final OtpErlangPid monitored,
             final OtpErlangRef ref, final OtpErlangObject reason) {
-        this.tag = tag;
+        return new OtpMsg(monitoring, monitored, ref, reason);
+    }
+
+    // monitor exit (etc) has monitoring, monitored, ref, reason
+    private OtpMsg(final OtpErlangPid monitoring, final OtpErlangPid monitored,
+            final OtpErlangRef ref, final OtpErlangObject reason) {
+        this.tag = monitorExitTag;
         this.from = monitored;
         this.to = monitoring;
         this.ref = ref;
@@ -137,10 +142,15 @@ public class OtpMsg {
         payload = reason;
     }
 
-    // monitor exit (etc) has monitoring, monitored, ref, reason
-    OtpMsg(final int tag, final OtpErlangPid monitoring, final String monitored,
+    static OtpMsg monitorExitMsg(final OtpErlangPid monitoring, final String monitored,
             final OtpErlangRef ref, final OtpErlangObject reason) {
-        this.tag = tag;
+        return new OtpMsg(monitoring, monitored, ref, reason);
+    }
+
+    // monitor exit (etc) has monitoring, monitored, ref, reason
+    private OtpMsg(final OtpErlangPid monitoring, final String monitored,
+            final OtpErlangRef ref, final OtpErlangObject reason) {
+        this.tag = monitorExitTag;
         this.fromName = monitored;
         this.to = monitoring;
         this.ref = ref;
@@ -171,15 +181,31 @@ public class OtpMsg {
         this.to = to;
     }
 
+    static OtpMsg monitorMsg(final OtpErlangPid monitoring, final OtpErlangPid monitored, final OtpErlangRef ref) {
+        return new OtpMsg(monitorTag, monitoring, monitored, ref);
+    }
+
+    static OtpMsg monitorMsg(final OtpErlangPid monitoring, final String monitored, final OtpErlangRef ref) {
+        return new OtpMsg(monitorTag, monitoring, monitored, ref);
+    }
+
+    static OtpMsg demonitorMsg(final OtpErlangPid monitoring, final OtpErlangPid monitored, final OtpErlangRef ref) {
+        return new OtpMsg(demonitorTag, monitoring, monitored, ref);
+    }
+
+    static OtpMsg demonitorMsg(final OtpErlangPid monitoring, final String monitored, final OtpErlangRef ref) {
+        return new OtpMsg(demonitorTag, monitoring, monitored, ref);
+    }
+
     // other message types (monitor, demonitor)
-    OtpMsg(final int tag, final OtpErlangPid monitoring, final OtpErlangPid monitored, final OtpErlangRef ref) {
+    private OtpMsg(final int tag, final OtpErlangPid monitoring, final OtpErlangPid monitored, final OtpErlangRef ref) {
         this.tag = tag;
         this.from = monitoring;
         this.to = monitored;
         this.ref = ref;
     }
 
-    OtpMsg(final int tag, final OtpErlangPid monitoring, final String monitored, final OtpErlangRef ref) {
+    private OtpMsg(final int tag, final OtpErlangPid monitoring, final String monitored, final OtpErlangRef ref) {
         this.tag = tag;
         this.from = monitoring;
         this.toName = monitored;
