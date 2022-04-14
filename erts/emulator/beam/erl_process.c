@@ -13551,6 +13551,7 @@ enum continue_exit_phase {
     ERTS_CONTINUE_EXIT_CLEAN_SYS_TASKS,
     ERTS_CONTINUE_EXIT_FREE,
     ERTS_CONTINUE_EXIT_CLEAN_SYS_TASKS_AFTER,
+    ERTS_CONTINUE_EXIT_DIST_SEND,
     ERTS_CONTINUE_EXIT_LINKS,
     ERTS_CONTINUE_EXIT_MONITORS,
     ERTS_CONTINUE_EXIT_LT_MONITORS,
@@ -13572,6 +13573,8 @@ struct continue_exit_state {
     void *yield_state;
     Uint32 block_rla_ref;
 };
+
+extern Export dsend_continue_trap_export;
 
 void
 erts_continue_exit_process(Process *p)
@@ -13764,6 +13767,9 @@ restart:
         /* notify free */
         erts_atomic32_read_bor_relb(&p->state, ERTS_PSFLG_FREE);
 
+        /* clear suspend count */
+        p->rcount = 0;
+
         trap_state->dep = ((p->flags & F_DISTRIBUTION)
                       ? ERTS_PROC_SET_DIST_ENTRY(p, NULL)
                       : NULL);
@@ -13812,6 +13818,10 @@ restart:
         trap_state->pectxt.dist_state = NIL;
         trap_state->pectxt.yield = 0;
 
+        if (p->current == &dsend_continue_trap_export.info.mfa) {
+            trap_state->pectxt.dist_state = p->arg_reg[0];
+        }
+
         erts_proc_lock(p, ERTS_PROC_LOCK_MSGQ);
 
         erts_proc_sig_fetch(p);
@@ -13819,8 +13829,13 @@ restart:
         erts_proc_unlock(p, ERTS_PROC_LOCK_MSGQ);
 
         trap_state->yield_state = NULL;
-        trap_state->phase = ERTS_CONTINUE_EXIT_LINKS;
+        trap_state->phase = ERTS_CONTINUE_EXIT_DIST_SEND;
         if (reds <= 0) goto yield;
+    case ERTS_CONTINUE_EXIT_DIST_SEND:
+        if (is_not_nil(trap_state->pectxt.dist_state)) {
+            goto continue_dist_send;
+        }
+        trap_state->phase = ERTS_CONTINUE_EXIT_LINKS;
     case ERTS_CONTINUE_EXIT_LINKS:
 
         reds = erts_link_tree_foreach_delete_yielding(

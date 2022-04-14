@@ -54,7 +54,7 @@ static Export* flush_monitor_messages_trap = NULL;
 static Export* set_cpu_topology_trap = NULL;
 static Export* await_port_send_result_trap = NULL;
 Export* erts_format_cpu_topology_trap = NULL;
-static Export dsend_continue_trap_export;
+Export dsend_continue_trap_export;
 Export *erts_convert_time_unit_trap = NULL;
 
 static Export *await_msacc_mod_trap = NULL;
