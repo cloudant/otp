@@ -1,0 +1,37 @@
+name: Sync upstream
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+jobs:
+  sync-origin-with-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.OTP_WORKFLOW_TOKEN }} # requires workflow scope
+      - name: Sync origin with upstream
+        run: |
+          set -x
+
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+          git remote add upstream https://github.com/erlang/otp.git
+          git fetch --all
+
+          git rebase upstream/master
+          git push origin -f
+
+          for remote in `git branch -r | grep upstream/ | grep -v /HEAD` ;\
+            do git checkout --track $remote ; done
+
+          git push --all origin
+          git push --tags origin
+
+# references:
+# - https://stackoverflow.com/questions/23793062/can-forks-be-synced-automatically-in-github
+# - https://stackoverflow.com/questions/379081/track-all-remote-git-branches-as-local-branches
+# - https://stackoverflow.com/questions/10312521/how-to-fetch-all-git-branches
+
